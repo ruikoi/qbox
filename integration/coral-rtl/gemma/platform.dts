@@ -46,7 +46,8 @@
         };
         npu@40000000 {
             compatible = "google,coral-npu-rtl";
-            reg = <0 0x40000000 0 0x800000>;
+            reg = <0 0x40000000 0 0x210000>, <0 0x40400000 0 0x100>;
+            reg-names = "npu", "control";
             interrupt-parent = <&plic>; interrupts = <12>;
         };
     };
