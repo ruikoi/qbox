@@ -479,3 +479,8 @@ gs_enable_testing()
 if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} INTERFACE rt)
 endif()
+
+option(ENABLE_VORTEX_RTL "Build Vortex GPGPU RTL platform" OFF)
+if(ENABLE_VORTEX_RTL)
+    add_subdirectory(integration/vortex-rtl)
+endif()

@@ -1,0 +1,54 @@
+/dts-v1/;
+/ {
+    #address-cells = <2>; #size-cells = <2>;
+    compatible = "qbox,vortex-rtl", "riscv-virtio";
+    model = "QBox RISC-V Linux + Vortex AFU RTL";
+    chosen {
+        stdout-path = "/soc/serial@10000000";
+        bootargs = "console=ttyS0,115200 earlycon=uart8250,mmio,0x10000000 rdinit=/vortex-rtl-init nokaslr nohlt";
+        linux,initrd-start = <0 0x88000000>;
+        linux,initrd-end = <0 0x88000000>; /* patched to the actual archive size */
+    };
+    memory@80000000 { device_type = "memory"; reg = <0 0x80000000 0 0x20000000>; };
+    cpus {
+        #address-cells = <1>; #size-cells = <0>; timebase-frequency = <10000000>;
+        cpu@0 {
+            device_type = "cpu"; reg = <0>; status = "okay"; compatible = "riscv";
+            riscv,isa = "rv64imafdc_zicsr_zifencei"; mmu-type = "riscv,sv48";
+            cpu_intc: interrupt-controller {
+                #interrupt-cells = <1>; interrupt-controller; compatible = "riscv,cpu-intc";
+            };
+        };
+    };
+    poweroff { compatible = "syscon-poweroff"; regmap = <&test>; offset = <0>; value = <0x5555>; };
+    reboot { compatible = "syscon-reboot"; regmap = <&test>; offset = <0>; value = <0x7777>; };
+    soc {
+        #address-cells = <2>; #size-cells = <2>; compatible = "simple-bus"; ranges;
+        clint@2000000 {
+            compatible = "sifive,clint0", "riscv,clint0";
+            reg = <0 0x2000000 0 0x10000>;
+            interrupts-extended = <&cpu_intc 3 &cpu_intc 7>;
+        };
+        plic: interrupt-controller@c000000 {
+            compatible = "sifive,plic-1.0.0", "riscv,plic0";
+            #address-cells = <0>; #interrupt-cells = <1>; interrupt-controller;
+            reg = <0 0xc000000 0 0x600000>; riscv,ndev = <95>;
+            interrupts-extended = <&cpu_intc 11 &cpu_intc 9>;
+        };
+        serial@10000000 {
+            compatible = "ns16550a"; reg = <0 0x10000000 0 0x100>;
+            clock-frequency = <3686400>; reg-shift = <0>;
+            interrupt-parent = <&plic>; interrupts = <10>;
+        };
+        test: syscon@100000 {
+            compatible = "sifive,test1", "sifive,test0", "syscon";
+            reg = <0 0x100000 0 0x1000>;
+        };
+        gpu@40000000 {
+            compatible = "vortex,afu-rtl";
+            reg = <0 0x40000000 0 0x20000>, <0 0x20000000 0 0x4000000>;
+            reg-names = "control", "staging";
+            interrupt-parent = <&plic>; interrupts = <12>;
+        };
+    };
+};
