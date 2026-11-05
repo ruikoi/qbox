@@ -44,9 +44,7 @@ public:
     {
         initiator_socket.bind(q_socket);
         target_socket.register_b_transport(this, &sifive_test::b_transport);
-        SC_METHOD(do_reset);
-        sensitive << reset_ev;
-        dont_initialize();
+        SC_THREAD(do_reset);
     }
 
     void before_end_of_elaboration() override { QemuDevice::before_end_of_elaboration(); }
@@ -61,23 +59,31 @@ public:
 
     void do_reset()
     {
-        if (last_reset == sc_core::sc_time_stamp()) return;
-        SCP_INFO(())("Initiate Reset sequence");
-        for (int i = 0; i < reset.size(); i++) {
-            reset[i]->write(1);
+        while (true) {
+            sc_core::wait(reset_ev);
+            if (last_reset == sc_core::sc_time_stamp()) continue;
+            SCP_INFO(())("Initiate Reset sequence");
+            // QemuCpu::reset_cb may wait for the vCPU reset acknowledgement.
+            for (int i = 0; i < reset.size(); i++) reset[i]->write(1);
+            for (int i = 0; i < reset.size(); i++) reset[i]->write(0);
+            last_reset = sc_core::sc_time_stamp();
         }
-        for (int i = 0; i < reset.size(); i++) {
-            reset[i]->write(0);
-        }
-        last_reset = sc_core::sc_time_stamp();
     }
 
     void b_transport(tlm::tlm_generic_payload& trans, sc_core::sc_time& delay)
     {
         initiator_socket->b_transport(trans, delay);
         sc_core::wait(sc_core::SC_ZERO_TIME);
-        if (trans.get_address() == 0x0) {
-            reset_ev.notify(sc_core::SC_ZERO_TIME);
+        if (!trans.is_response_error() && trans.is_write() &&
+            trans.get_address() == 0 && trans.get_data_length() == 4) {
+            const auto* data = trans.get_data_ptr();
+            const unsigned command = unsigned(data[0]) | (unsigned(data[1]) << 8);
+            if (command == 0x5555 || command == 0x3333) {
+                // SiFive finisher pass/fail is a platform shutdown, not reset.
+                sc_core::sc_stop();
+            } else if (command == 0x7777) {
+                reset_ev.notify(sc_core::SC_ZERO_TIME);
+            }
         }
     }
 };
