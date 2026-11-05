@@ -479,3 +479,8 @@ gs_enable_testing()
 if(UNIX AND NOT APPLE)
     target_link_libraries(${PROJECT_NAME} INTERFACE rt)
 endif()
+
+option(ENABLE_CORAL_RTL "Build Coral NPU RTL platform" OFF)
+if(ENABLE_CORAL_RTL)
+    add_subdirectory(integration/coral-rtl)
+endif()

@@ -1,0 +1,2 @@
+gs_create_dymod(coral_npu_rtl)
+target_link_libraries(coral_npu_rtl PRIVATE coral_rtl)
